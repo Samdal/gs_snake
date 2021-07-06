@@ -8,11 +8,11 @@ uniform vec2 u_food;
 
 void main()
 {
-    vec2 st = (gl_FragCoord.xy / u_resolution.xy) * 31.0;
-    int x = int(floor(st.x));
-    int y = int(floor(st.y));
-    diffuseColor.g = float(u_map[y] & (1 << x));
-    diffuseColor.r = float(x == int(u_food.x) && y == int(u_food.y));
+    vec2 st = (gl_FragCoord.xy / u_resolution.xy) * 32.0;
+    uint x = uint(floor(st.x));
+    uint y = uint(floor(st.y));
+    diffuseColor.g = float(uint(u_map[y]) & uint(1 << x));
+    diffuseColor.r = float(x == uint(u_food.x) && y == uint(u_food.y));
     diffuseColor.b = 0.0;
     diffuseColor.a = 1.0;
 }

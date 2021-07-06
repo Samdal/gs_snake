@@ -87,7 +87,7 @@ void new_game()
         body->pos = (gs_vec2){16.0f, 16.0f};
 
         // place tail piece in map_buffer
-        map_buffer[(int)floor(body->pos.y)] |= (1 << (int)floor(body->pos.x));
+        map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
 
         for (uint32_t i = 1; i <= 3; i++) {
                 // create snake piece
@@ -100,7 +100,7 @@ void new_game()
                 body->next = NULL;
 
                 // place snake piece in map_buffer
-                map_buffer[(int)floor(body->pos.y)] |= (1 << (int)floor(body->pos.x));
+                map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
         }
 
         // place food at random position
@@ -140,7 +140,7 @@ void move_snake()
         } else {
                 // remove tail from buffer
                 body = tail;
-                map_buffer[(int)floor(body->pos.y)] &= ~(1 << (int)floor(body->pos.x));
+                map_buffer[(int)body->pos.y] &= ~(1 << (int)body->pos.x);
 
                 // move each snake piece to the next ones position
                 while (body->next) {
@@ -158,7 +158,7 @@ void move_snake()
                 }
         }
         // add head to buffer
-        map_buffer[(int)floor(body->pos.y)] |= (1 << (int)floor(body->pos.x));
+        map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
 }
 
 void init()
