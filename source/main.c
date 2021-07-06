@@ -109,34 +109,31 @@ void new_game()
         } while (map_buffer[(int)food.y] & (1 << (int)food.x));
 }
 
-void move_head(snake_t* head)
-{
-        head->pos.x += move.x;
-        head->pos.y += move.y;
-        // wrap snake
-        if (head->pos.x > 31.0f)
-                head->pos.x = 0.0f;
-        else if (head->pos.x < 0.0f)
-                head->pos.x = 31.0f;
-        else if (head->pos.y > 31.0f)
-                head->pos.y = 0.0f;
-        else if (head->pos.y < 0.0f)
-                head->pos.y = 31.0f;
-}
 void move_snake()
 {
-
-        snake_t* body = tail;
         prev_move = move;
+        snake_t* body = tail;
 
-        // get head
+        // get new head pos
         while (body->next)
                 body = body->next;
+        gs_vec2 new_pos = body->pos;
+        new_pos.x += move.x;
+        new_pos.y += move.y;
+        // wrap snake
+        if (new_pos.x > 31.0f)
+                new_pos.x = 0.0f;
+        else if (new_pos.x < 0.0f)
+                new_pos.x = 31.0f;
+        else if (new_pos.y > 31.0f)
+                new_pos.y = 0.0f;
+        else if (new_pos.y < 0.0f)
+                new_pos.y = 31.0f;
 
         // if new pos is food
-        if (body->pos.x + move.x == food.x && body->pos.y + move.y == food.y) {
+        if (new_pos.x == food.x && new_pos.y == food.y) {
                 body = eat_food(body);
-                move_head(body);
+                body->pos = new_pos;
         } else {
                 // remove tail from buffer
                 body = tail;
@@ -149,16 +146,16 @@ void move_snake()
                         body = next;
                 }
 
-                move_head(body);
+                body->pos = new_pos;
 
                 // check for collision
                 if (map_buffer[(int)body->pos.y] & (1 << (int)body->pos.x)) {
                         new_game();
                         return;
                 }
+                // add head to buffer
+                map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
         }
-        // add head to buffer
-        map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
 }
 
 void init()
@@ -179,8 +176,8 @@ void init()
         });
 
         // shader sources
-        char* f_src = gs_platform_read_file_contents("frag.glsl", "r", NULL);
-        char* v_src = gs_platform_read_file_contents("vertex.glsl", "r", NULL);
+        char* f_src = gs_platform_read_file_contents("./source/frag.glsl", "r", NULL);
+        char* v_src = gs_platform_read_file_contents("./source/vertex.glsl", "r", NULL);
 
         // Create shader
         shader = gs_graphics_shader_create (&(gs_graphics_shader_desc_t) {
