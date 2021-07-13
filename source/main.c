@@ -23,7 +23,7 @@ gs_handle(gs_graphics_uniform_t)         u_resolution = {0};
 gs_handle(gs_graphics_uniform_t)         u_food   = {0};
 gs_handle(gs_graphics_uniform_t)         u_map   = {0};
 
-char map_names[32][256] = {0};
+char map_names[32][32] = {0};
 uint32_t map_buffer[32] = {0};
 
 // snake linked list
@@ -111,6 +111,7 @@ void new_game()
 
 void move_snake()
 {
+        gs_printf("FPS: %f\n", gs_engine_subsystem(platform)->time.frame);
         prev_move = move;
         snake_t* body = tail;
 
@@ -236,6 +237,16 @@ void init()
 
         // start game
         new_game();
+
+        // Bindings for all buffers: vertex, index, uniforms
+        gs_graphics_bind_desc_t binds = {
+                .vertex_buffers = {.desc = &(gs_graphics_bind_vertex_buffer_desc_t){.buffer = vbo}},
+                .index_buffers = {.desc = &(gs_graphics_bind_index_buffer_desc_t){.buffer = ibo}}
+        };
+
+        gs_graphics_begin_render_pass(&cb, GS_GRAPHICS_RENDER_PASS_DEFAULT);
+        gs_graphics_bind_pipeline(&cb, pip);
+        gs_graphics_apply_bindings(&cb, &binds);
 }
 
 void update()
@@ -248,8 +259,9 @@ void update()
         else if (gs_platform_key_pressed(GS_KEYCODE_DOWN) && prev_move.x != 0.0f) move = (gs_vec2){0.0f,-1.0f};
 
         // move snake every 0.2 seconds
-        uint32_t time_now = gs_platform_elapsed_time() * 0.01f;
-        if (time_now - prev_move_time >= 2) {
+        const uint32_t time_now = gs_platform_elapsed_time() * 0.01f;
+        const bool has_moved = time_now - prev_move_time >= 2;
+        if (has_moved) {
                 move_snake();
                 prev_move_time = time_now;
         }
@@ -264,18 +276,14 @@ void update()
 
         // Bindings for all buffers: vertex, index, uniforms
         gs_graphics_bind_desc_t binds = {
-                .vertex_buffers = {.desc = &(gs_graphics_bind_vertex_buffer_desc_t){.buffer = vbo}},
-                .index_buffers = {.desc = &(gs_graphics_bind_index_buffer_desc_t){.buffer = ibo}},
                 .uniforms = {.desc = uniforms, .size = sizeof(uniforms)}
         };
 
         /* Render */
-        gs_graphics_begin_render_pass(&cb, GS_GRAPHICS_RENDER_PASS_DEFAULT);
         gs_graphics_set_viewport(&cb, 0, 0, (int32_t)fbs.x, (int32_t)fbs.y);
-        gs_graphics_bind_pipeline(&cb, pip);
-        gs_graphics_apply_bindings(&cb, &binds);
+        if (has_moved)
+                gs_graphics_apply_bindings(&cb, &binds);
         gs_graphics_draw(&cb, &(gs_graphics_draw_desc_t){.start = 0, .count = 6});
-        gs_graphics_end_render_pass(&cb);
 
         // Submit command buffer (syncs to GPU, MUST be done on main thread where you have your GPU context created)
         gs_graphics_submit_command_buffer(&cb);
@@ -288,5 +296,6 @@ gs_app_desc_t gs_main(int32_t argc, char** argv)
                 .init = init,
                 .update = update,
                 .shutdown = free_snake,
+                .frame_rate = 9999999999999.f,
         };
 }
