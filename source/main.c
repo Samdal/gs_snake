@@ -244,6 +244,5 @@ gs_app_desc_t gs_main(int32_t argc, char** argv)
                 .window_title = "Gunslinger Snake",
                 .init = init,
                 .update = update,
-                .frame_rate = 9999999999999.f,
         };
 }
