@@ -67,7 +67,6 @@ void new_game()
 
 void move_snake()
 {
-        gs_printf("FPS: %f\n", gs_engine_subsystem(platform)->time.frame);
         prev_move = move;
         ivec new_pos = {snake[head].x + move.x, snake[head].y + move.y};
 
