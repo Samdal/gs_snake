@@ -25,82 +25,38 @@ gs_handle(gs_graphics_uniform_t)         u_map   = {0};
 
 char map_names[32][32] = {0};
 uint32_t map_buffer[32] = {0};
+typedef union {
+        int32_t xy[2];
+        struct {
+                int32_t x, y;
+        };
+} ivec;
 
-// snake linked list
-typedef struct snake {
-        gs_vec2 pos;
-        void* next;
-} snake_t;
-snake_t* tail = &(snake_t){0};
+ivec snake[32 * 32] = {0};
+uint32_t head = 3;
 
 gs_vec2 food = {16.0f, 16.0f};
 
-gs_vec2 prev_move = {0};
-gs_vec2 move = {0};
+ivec prev_move = {0};
+ivec move = {0};
 uint32_t prev_move_time = 0;
-
-snake_t* eat_food(snake_t* head)
-{
-        // move food
-        map_buffer[(int)food.y] |= (1 << (int)food.x);
-        do {
-                food = (gs_vec2){rand() % 32, rand() % 32};
-        } while (map_buffer[(int)food.y] & (1 << (int)food.x));
-
-        // Grow snake
-        head->next = (snake_t*)gs_malloc(sizeof(snake_t));
-        gs_assert(head->next);
-        gs_vec2 pos = head->pos;
-        head = head->next;
-        head->pos = pos;
-        head->next = NULL;
-        return head;
-}
-
-void free_snake()
-{
-        while (tail->next) {
-                snake_t* head = tail;
-                for (;;) {
-                        snake_t* next = head->next;
-                        if (!next->next)
-                                break;
-                        head = next;
-                }
-                gs_free(head->next);
-                head->next = NULL;
-        }
-}
 
 void new_game()
 {
         // reinitialise buffers
         for (uint32_t i = 0; i < 32; i++)
                 map_buffer[i] = 0;
+        for (uint32_t i = 0; i < 32 * 32; i++)
+                snake[i] = (ivec){0};
         prev_move_time = gs_platform_elapsed_time() * 0.01f;
-        move = (gs_vec2){1.0f, 0.0f};
+        move = (ivec){1, 0};
         prev_move = move;
-        free_snake();
+        head = 3;
 
-        // init tail piece
-        snake_t* body = tail;
-        body->pos = (gs_vec2){16.0f, 16.0f};
-
-        // place tail piece in map_buffer
-        map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
-
-        for (uint32_t i = 1; i <= 3; i++) {
-                // create snake piece
-                body->next = (snake_t*)gs_malloc(sizeof(snake_t));
-                gs_assert(body->next);
-                body = body->next;
-
-                // init snake piece
-                body->pos = (gs_vec2){16.0f + (float)i, 16.0f};
-                body->next = NULL;
-
-                // place snake piece in map_buffer
-                map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
+        // place snake in map_buffer
+        for (uint32_t i = 0; i <= 3; i++) {
+                snake[i] = (ivec){16+i,16};
+                map_buffer[snake[i].y] |= (1 << snake[i].x);
         }
 
         // place food at random position
@@ -113,49 +69,42 @@ void move_snake()
 {
         gs_printf("FPS: %f\n", gs_engine_subsystem(platform)->time.frame);
         prev_move = move;
-        snake_t* body = tail;
+        ivec new_pos = {snake[head].x + move.x, snake[head].y + move.y};
 
-        // get new head pos
-        while (body->next)
-                body = body->next;
-        gs_vec2 new_pos = body->pos;
-        new_pos.x += move.x;
-        new_pos.y += move.y;
         // wrap snake
-        if (new_pos.x > 31.0f)
-                new_pos.x = 0.0f;
-        else if (new_pos.x < 0.0f)
-                new_pos.x = 31.0f;
-        else if (new_pos.y > 31.0f)
-                new_pos.y = 0.0f;
-        else if (new_pos.y < 0.0f)
-                new_pos.y = 31.0f;
+        if (new_pos.x > 31)      new_pos.x = 0;
+        else if (new_pos.x < 0)  new_pos.x = 31;
+        else if (new_pos.y > 31) new_pos.y = 0;
+        else if (new_pos.y < 0)  new_pos.y = 31;
 
         // if new pos is food
-        if (new_pos.x == food.x && new_pos.y == food.y) {
-                body = eat_food(body);
-                body->pos = new_pos;
+        if (new_pos.x == (int)food.x && new_pos.y == (int)food.y) {
+                // add head to buffer
+                head++;
+                snake[head] = new_pos;
+                map_buffer[new_pos.y] |= (1 << new_pos.x);
+
+                // place food in a random place
+                do {
+                        food = (gs_vec2){rand() % 32, rand() % 32};
+                } while (map_buffer[(int)food.y] & (1 << (int)food.x));
+
         } else {
                 // remove tail from buffer
-                body = tail;
-                map_buffer[(int)body->pos.y] &= ~(1 << (int)body->pos.x);
+                map_buffer[snake[0].y] &= ~(1 << snake[0].x);
 
                 // move each snake piece to the next ones position
-                while (body->next) {
-                        snake_t* next = body->next;
-                        body->pos = next->pos;
-                        body = next;
-                }
-
-                body->pos = new_pos;
+                for (uint32_t i = 0; i < head; i++)
+                        snake[i] = snake[i+1];
 
                 // check for collision
-                if (map_buffer[(int)body->pos.y] & (1 << (int)body->pos.x)) {
+                if (map_buffer[new_pos.y] & (1 << new_pos.x)) {
                         new_game();
                         return;
                 }
                 // add head to buffer
-                map_buffer[(int)body->pos.y] |= (1 << (int)body->pos.x);
+                snake[head] = new_pos;
+                map_buffer[snake[head].y] |= (1 << snake[head].x);
         }
 }
 
@@ -253,10 +202,10 @@ void update()
 {
         // inputs
         if (gs_platform_key_pressed(GS_KEYCODE_ESC)) gs_engine_quit();
-        if (gs_platform_key_pressed(GS_KEYCODE_RIGHT)     && prev_move.y != 0.0f) move = (gs_vec2){1.0f,0.0f};
-        else if (gs_platform_key_pressed(GS_KEYCODE_LEFT) && prev_move.y != 0.0f) move = (gs_vec2){-1.0f,0.0f};
-        else if (gs_platform_key_pressed(GS_KEYCODE_UP)   && prev_move.x != 0.0f) move = (gs_vec2){0.0f,1.0f};
-        else if (gs_platform_key_pressed(GS_KEYCODE_DOWN) && prev_move.x != 0.0f) move = (gs_vec2){0.0f,-1.0f};
+        else if (gs_platform_key_pressed(GS_KEYCODE_UP)   && prev_move.x != 0) move = (ivec){0,1};
+        else if (gs_platform_key_pressed(GS_KEYCODE_DOWN) && prev_move.x != 0) move = (ivec){0,-1};
+        else if (gs_platform_key_pressed(GS_KEYCODE_RIGHT)     && prev_move.y != 0) move = (ivec){1,0};
+        else if (gs_platform_key_pressed(GS_KEYCODE_LEFT) && prev_move.y != 0) move = (ivec){-1,0};
 
         // move snake every 0.2 seconds
         const uint32_t time_now = gs_platform_elapsed_time() * 0.01f;
@@ -295,7 +244,6 @@ gs_app_desc_t gs_main(int32_t argc, char** argv)
                 .window_title = "Gunslinger Snake",
                 .init = init,
                 .update = update,
-                .shutdown = free_snake,
                 .frame_rate = 9999999999999.f,
         };
 }
